@@ -32,6 +32,9 @@ public:
 
     void compute_magnetization();
 
+    //LiuXh add 2023.03.02
+    void cal_local_mag();
+
 private:
 
 };

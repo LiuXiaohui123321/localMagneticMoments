@@ -141,6 +141,9 @@ void Run_Frag::pw_line(void)
 
 	en.perform_dos();
 
+    // LiuXh add 2023.03.02
+    mag.cal_local_mag();
+
     return;
 }
 
@@ -435,6 +438,9 @@ void Run_Frag::frag_pw_line(void)
     //}
 
 	en.perform_dos();
+
+    // LiuXh add 2023.03.02
+    mag.cal_local_mag();
 
 	timer::tick("Run_Frag","frag_pw_line",'B');
     return;

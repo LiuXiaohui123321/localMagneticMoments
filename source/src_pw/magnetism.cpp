@@ -126,3 +126,116 @@ double Magnetism::get_neldw(void)
 //	}
 //	return neldw;
 }
+
+// LiuXh add 2023.03.02
+void Magnetism::cal_local_mag()
+{
+    int natom = ucell.nat;
+    //double* local_mag;
+    //double* local_mag_nc;
+
+    //if(NSPIN==2)
+    //{
+    //    local_mag = new double[natom];
+    //    ZEROS(local_mag, natom);
+    //}
+    //else if(NSPIN==4)
+    //{
+    //    local_mag_nc = new double[natom];
+    //    ZEROS(local_mag_nc, natom);
+    //}
+
+    double* local_mag;
+    local_mag = new double[natom];
+    ZEROS(local_mag, natom);
+
+    int ncx = pw.ncx;
+    int ncy = pw.ncy;
+    int nczp = pw.nczp;
+    int nczp_start = pw.nczp_start;
+
+    //double mcell_pos[3] = {0.0};
+    Vector3<double> mcell_pos;
+    Vector3<double> atom_pos;
+    Vector3<double> dis_mcell_atom;
+    double distance = 0.0;
+    double atom_rcut = 5.0; // Unit: Bohr
+    for(int T0=0; T0<ucell.ntype; T0++)
+    {
+        for(int I0=0; I0<ucell.atoms[T0].na; I0++)
+        {
+            int iat = ucell.itia2iat(T0,I0);
+            atom_pos = ucell.atoms[T0].tau[I0];
+
+            for(int i=0; i<ncx; i++)
+            {
+                for(int j=0; j<ncy; j++)
+                {
+                    for(int k=nczp_start; k<nczp_start+nczp; k++)
+                    {
+                        //mcell_pos[0] = i*GridT.meshcell_vec1[0] + j*GridT.meshcell_vec2[0] + k*GridT.meshcell_vec3[0];
+                        //mcell_pos[1] = i*GridT.meshcell_vec1[1] + j*GridT.meshcell_vec2[1] + k*GridT.meshcell_vec3[1];
+                        //mcell_pos[2] = i*GridT.meshcell_vec1[2] + j*GridT.meshcell_vec2[2] + k*GridT.meshcell_vec3[2];
+                        int mcell_index = i*ncy*nczp + j*nczp + (k-nczp_start);
+
+                        mcell_pos.x = i*GridT.meshcell_vec1[0] + j*GridT.meshcell_vec2[0] + k*GridT.meshcell_vec3[0];
+                        mcell_pos.y = i*GridT.meshcell_vec1[1] + j*GridT.meshcell_vec2[1] + k*GridT.meshcell_vec3[1];
+                        mcell_pos.z = i*GridT.meshcell_vec1[2] + j*GridT.meshcell_vec2[2] + k*GridT.meshcell_vec3[2];
+
+                        dis_mcell_atom = atom_pos - mcell_pos;
+                        distance = dis_mcell_atom.norm();
+                        if(distance < atom_rcut)
+                        {
+                            if(NSPIN==2)
+                            {
+                                double diff = chr.rho[0][mcell_index] - chr.rho[1][mcell_index];
+                                local_mag[iat] += diff;
+                            }
+                            if(NSPIN==4)
+                            {
+                                double diff = sqrt(pow(chr.rho[1][mcell_index], 2) + pow(chr.rho[2][mcell_index], 2) +pow(chr.rho[3][mcell_index], 2));
+                                //local_mag_nc[iat] += diff;
+                                local_mag[iat] += diff;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //if(NSPIN==2)
+    //{
+    //    Parallel_Reduce::reduce_double_pool(local_mag, natom);
+    //    for(int iat=0; iat<natom; iat++)
+    //    {
+    //        local_mag[iat] *= ucell.omega / pw.ncxyz;
+    //        OUT(ofs_running, "atom label", iat);
+    //        OUT(ofs_running, "local magnetic moment", local_mag[iat]);
+    //    }
+
+    //    delete[] local_mag;
+    //}
+    //else if(NSPIN==4)
+    //{
+    //    Parallel_Reduce::reduce_double_pool(local_mag_nc, natom);
+    //    for(int iat=0; iat<natom; iat++)
+    //    {
+    //        local_mag_nc[iat] *= ucell.omega / pw.ncxyz;
+    //        OUT(ofs_running, "atom label", iat);
+    //        OUT(ofs_running, "local magnetic moment", local_mag_nc[iat]);
+    //    }
+
+    //    delete[] local_mag_nc;
+    //}
+
+    Parallel_Reduce::reduce_double_pool(local_mag, natom);
+    for(int iat=0; iat<natom; iat++)
+    {
+        local_mag[iat] *= ucell.omega / pw.ncxyz;
+        OUT(ofs_running, "atom label", iat);
+        OUT(ofs_running, "local magnetic moment", local_mag[iat]);
+    }
+
+    delete[] local_mag;
+}
